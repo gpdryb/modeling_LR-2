@@ -1,19 +1,30 @@
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class StochasticModel {
-    int m, n;
+    int m, n, currentM;
     private double[][] matrix;
+    private List<List<Double>> currentMatrix;
     private int state;
-    private double[] expectation;
-    private double[] variance;
-
     FileWriter fw;
+    List<Double> expectation;
+    List<Double> variance;
 
     public StochasticModel(int m, int n, double[][] matrix, String filename) {
         this.m = m;
+        this.currentM = m;
         this.n = n;
         this.matrix = matrix;
+        this.currentMatrix = new ArrayList<>();
+        for (int i = 0; i < m; i++) {
+            List<Double> row = new ArrayList<>();
+            for (int j = 0; j < n; j++) {
+                row.add(matrix[i][j]);
+            }
+            this.currentMatrix.add(row);
+        }
 
         try {
             fw = new FileWriter(filename, false);
@@ -21,23 +32,6 @@ public class StochasticModel {
             throw new RuntimeException(e);
         }
 
-        this.expectation = new double[n];
-        for (int i = 0; i <n; i++) {
-            double exp = 0.;
-            for (int j = 0; j < m; j++) {
-                exp += matrix[j][i];
-            }
-            this.expectation[i] = exp / m;
-        }
-
-        this.variance = new double[n];
-        for (int i = 0; i < n; i++) {
-            double var = 0.;
-            for (int j = 0; j < m; j++) {
-                var += Math.abs(matrix[j][i] - expectation[j]);
-            }
-            this.variance[i] = var / m;
-        }
     }
 
     public void next() {
@@ -69,16 +63,49 @@ public class StochasticModel {
         }
     }
 
+    private void calcExpectation() {
+        List<Double> tmp = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            double exp = 0.;
+            for (int j = 0; j < this.currentMatrix.size(); j++) {
+                exp += this.currentMatrix.get(j).get(i);
+            }
+            tmp.add(exp / this.currentMatrix.size());
+        }
+
+        this.expectation = tmp;
+    }
+
+    private void calcVariance() {
+        List<Double> tmp = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            double var = 0.;
+            for (int j = 0; j < m; j++) {
+                var += Math.abs(matrix[j][i] - this.expectation.get(j)) / 2;
+            }
+            tmp.add(var / this.currentMatrix.size());
+        }
+
+        this.variance = tmp;
+    }
+
     public void getCurrentStateMark() {
-        double[] mark = new double[n];
+        List<Double> row = new ArrayList<>();
+        this.calcExpectation();
+        this.calcVariance();
+
         try {
             fw.write("\n");
             for (int i = 0; i < n; i++) {
-                mark[i] = expectation[i] + Math.random() * variance[i];
-                String str = String.format("%.5f\t", mark[i]);
+                double next = expectation.get(i) + Math.random() * variance.get(i);
+                row.add(next);
+                String str = String.format("%.5f\t", next);
                 System.out.print(str);
                 fw.write(str);
             }
+
+            this.currentMatrix.add(row);
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
