@@ -1,34 +1,61 @@
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.List;
 
 public class Main {
     private static double[][] matrix = new double[][] {{0.5, 0.25, 0.25}, {0.5, 0., 0.5}, {0.67, 0.33, 0.}};
 
     public static void main(String[] args) {
-        StochasticModel stochasticModel = new StochasticModel(3, 3, matrix, "stohastic.txt");
+        FileWriter stochasticFw = null;
+        try {
+            stochasticFw = new FileWriter("stochastic.txt");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+        StochasticModel stochasticModel = new StochasticModel(3, matrix);
         stochasticModel.playInitialState();
-        System.out.println("Начальное состояние: " + stochasticModel.getState() + "\n");
-        for (int i = 0; i < 20; i++) {
-            System.out.println("Шаг №" + i);
-            stochasticModel.next();
+        try {
+            stochasticFw.write("Начальное состояние: " + stochasticModel.getState() + "\n");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
-        System.out.println("Оценка текущего состояния:");
-        for (int i = 0; i < 20; i++) {
-            System.out.println("Шаг №" + i + "\t");
-            stochasticModel.getCurrentStateMark();
-            System.out.println();
+        try {
+            stochasticFw.write("Моделирование:\n");
+            int counter = 0;
+            do {
+                stochasticFw.write(counter + 1 + "\t\t");
+                Integer state = stochasticModel.getState();
+                stochasticFw.write(state + "\t\t");
+                List<Double> mark = stochasticModel.getCurrentStochasticMark();
+                for (Double m : mark) {
+                    String str = String.format("%.5f\t", m);
+                    stochasticFw.write(str);
+                }
+                stochasticFw.write("\t");
+
+                stochasticModel.calcKolmogorovChapman();
+                List<Double> states = stochasticModel.getCalculatedStates();
+
+                for (Double m : states) {
+                    String str = String.format("%.7f\t", m);
+                    stochasticFw.write(str);
+                }
+                stochasticFw.write("\n");
+                stochasticModel.doStep();
+                counter++;
+            } while (stochasticModel.getDiff() > 0.00001 && counter < 30);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
 
-        stochasticModel.saveFile();
+        try {
+            stochasticFw.flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
-        MChain mChain = new MChain(3, 3, matrix, "chain.txt");
-        mChain.playInitialState();
-        System.out.print("\nНачальное состояние:");
-        mChain.printState();
-        System.out.println();
-        System.out.println("Моделирование:");
-        mChain.model(0.0001, 20);
-        mChain.saveFile();
     }
 }
